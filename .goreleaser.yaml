@@ -1,0 +1,39 @@
+version: 2
+
+builds:
+  - id: provider
+    binary: "{{ .ProjectName }}_v{{ .Version }}"
+    goos:
+      - linux
+      - darwin
+      - freebsd
+    goarch:
+      - amd64
+      - arm64
+      - arm
+    goarm:
+      - "7"
+    env:
+      - CGO_ENABLED=0
+
+archives:
+  - format: zip
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+
+checksum:
+  name_template: "{{ .ProjectName }}_{{ .Version }}_SHA256SUMS"
+
+signs:
+  - artifacts: checksum
+    args: ["--batch", "--no-tty", "--digest-algo=sha256", "--local-user", "{{ .Env.GPG_FINGERPRINT }}"]
+    signature: "${artifact}.sig"
+
+release:
+  prerelease: auto
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
