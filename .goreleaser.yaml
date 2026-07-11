@@ -25,7 +25,7 @@ checksum:
 
 signs:
   - artifacts: checksum
-    args: ["--batch", "--no-tty", "--digest-algo=sha256", "--local-user", "{{ .Env.GPG_FINGERPRINT }}"]
+    args: ["--batch", "--no-tty", "--digest-algo=sha256", "--local-user", "{{ .Env.GPG_FINGERPRINT }}", "--detach-sign", "--output", "${signature}", "${artifact}"]
     signature: "${artifact}.sig"
 
 release:
