@@ -14,19 +14,19 @@ type linkResource struct {
 }
 
 type linkResourceModel struct {
-	Name    types.String `tfsdk:"name"`
-	Address types.String `tfsdk:"address"`
-	PeerIP  types.String `tfsdk:"peer_ip"`
-	Tun     types.Bool   `tfsdk:"tun"`
-	WGPort  types.Int64  `tfsdk:"wg_listen_port"`
-	WGPriv  types.String `tfsdk:"wg_private_key"`
-	WGPub   types.String `tfsdk:"wg_public_key"`
-	WGMtu   types.Int64  `tfsdk:"wg_mtu"`
-	WGEp    types.String `tfsdk:"wg_endpoint"`
-	WGAIP   types.String `tfsdk:"wg_allowed_ips"`
-	WGKA    types.Int64  `tfsdk:"wg_persistent_keepalive"`
-	MPLSPort types.Int64 `tfsdk:"mpls_listen_port"`
-	MPLSPeers types.List `tfsdk:"mpls_peers"`
+	Name      types.String `tfsdk:"name"`
+	Address   types.String `tfsdk:"address"`
+	PeerIP    types.String `tfsdk:"peer_ip"`
+	Tun       types.Bool   `tfsdk:"tun"`
+	WGPort    types.Int64  `tfsdk:"wg_listen_port"`
+	WGPriv    types.String `tfsdk:"wg_private_key"`
+	WGPub     types.String `tfsdk:"wg_public_key"`
+	WGMtu     types.Int64  `tfsdk:"wg_mtu"`
+	WGEp      types.String `tfsdk:"wg_endpoint"`
+	WGAIP     types.String `tfsdk:"wg_allowed_ips"`
+	WGKA      types.Int64  `tfsdk:"wg_persistent_keepalive"`
+	MPLSPort  types.Int64  `tfsdk:"mpls_listen_port"`
+	MPLSPeers types.List   `tfsdk:"mpls_peers"`
 }
 
 func newLinkResource() resource.Resource {
@@ -40,16 +40,19 @@ func (r *linkResource) Metadata(ctx context.Context, req resource.MetadataReques
 func (r *linkResource) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
 		Attributes: map[string]schema.Attribute{
-			"name":            schema.StringAttribute{Required: true},
-			"address":         schema.StringAttribute{Optional: true},
-			"peer_ip":         schema.StringAttribute{Optional: true},
-			"wg_listen_port":  schema.Int64Attribute{Optional: true},
-			"wg_private_key":  schema.StringAttribute{Optional: true, Sensitive: true},
-			"wg_public_key":   schema.StringAttribute{Optional: true},
-			"wg_mtu":          schema.Int64Attribute{Optional: true},
-			"wg_endpoint":     schema.StringAttribute{Optional: true},
-			"wg_allowed_ips":  schema.StringAttribute{Optional: true},
+			"name":                    schema.StringAttribute{Required: true},
+			"address":                 schema.StringAttribute{Optional: true},
+			"peer_ip":                 schema.StringAttribute{Optional: true},
+			"tun":                     schema.BoolAttribute{Optional: true},
+			"wg_listen_port":          schema.Int64Attribute{Optional: true},
+			"wg_private_key":          schema.StringAttribute{Optional: true, Sensitive: true},
+			"wg_public_key":           schema.StringAttribute{Optional: true},
+			"wg_mtu":                  schema.Int64Attribute{Optional: true},
+			"wg_endpoint":             schema.StringAttribute{Optional: true},
+			"wg_allowed_ips":          schema.StringAttribute{Optional: true},
 			"wg_persistent_keepalive": schema.Int64Attribute{Optional: true},
+			"mpls_listen_port":        schema.Int64Attribute{Optional: true},
+			"mpls_peers":              schema.ListAttribute{ElementType: types.StringType, Optional: true},
 		},
 	}
 }
@@ -131,9 +134,24 @@ func buildLinkBody(plan linkResourceModel) map[string]any {
 		"address": plan.Address.ValueString(),
 		"peer_ip": plan.PeerIP.ValueString(),
 	}
-	if plan.Tun.ValueBool() {
+	switch {
+	case plan.Tun.ValueBool():
 		body["tun"] = map[string]any{"mtu": 1420}
-	} else {
+	case !plan.MPLSPort.IsUnknown() && plan.MPLSPort.ValueInt64() > 0:
+		mp := map[string]any{
+			"listen_port": plan.MPLSPort.ValueInt64(),
+		}
+		if !plan.MPLSPeers.IsUnknown() && len(plan.MPLSPeers.Elements()) > 0 {
+			var peers []string
+			for _, e := range plan.MPLSPeers.Elements() {
+				if s, ok := e.(types.String); ok {
+					peers = append(peers, s.ValueString())
+				}
+			}
+			mp["peers"] = peers
+		}
+		body["mpls_udp"] = mp
+	default:
 		wg := make(map[string]any)
 		wg["listen_port"] = plan.WGPort.ValueInt64()
 		wg["private_key"] = plan.WGPriv.ValueString()
