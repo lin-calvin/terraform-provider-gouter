@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
@@ -91,6 +92,11 @@ func (r *linkResource) Read(ctx context.Context, req resource.ReadRequest, resp 
 	name := state.Name.ValueString()
 	var result map[string]any
 	if err := r.client.Get("/links", name, &result); err != nil {
+		if errors.Is(err, ErrNotFound) {
+			// 资源已不存在：从 state 移除，让 Terraform 决定重建
+			resp.State.RemoveResource(ctx)
+			return
+		}
 		resp.Diagnostics.AddError("read link", err.Error())
 		return
 	}

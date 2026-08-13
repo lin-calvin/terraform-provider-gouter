@@ -3,12 +3,17 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"net/url"
 	"strings"
 )
+
+// ErrNotFound 表示资源在 gouter API 中不存在（HTTP 404）。
+// Read 应捕获它并调用 RemoveResource，让 Terraform 决定重建。
+var ErrNotFound = errors.New("not found")
 
 type Client struct {
 	endpoint string
@@ -56,6 +61,9 @@ func (c *Client) do(method, url string, body, result any) error {
 
 	respBody, _ := io.ReadAll(resp.Body)
 
+	if resp.StatusCode == http.StatusNotFound {
+		return fmt.Errorf("%w: %s", ErrNotFound, url)
+	}
 	if resp.StatusCode >= 400 {
 		var errResp struct {
 			Error string `json:"error"`
